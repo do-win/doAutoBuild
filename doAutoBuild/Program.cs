@@ -10,6 +10,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace doAutoBuild
@@ -35,6 +36,7 @@ namespace doAutoBuild
             {
                 JObject _buildConfigObj = JObject.Parse(_buildConfigContent);
                 _configBean.Msbuildpath = _buildConfigObj.GetValue("msbuildpath").ToString();
+                _configBean.GetBuildTaskInterval = int.Parse(_buildConfigObj.GetValue("buildtaskinterval").ToString());
             }
             catch (Exception)
             {
@@ -42,12 +44,26 @@ namespace doAutoBuild
                 throw;
             }
 
+            Thread buildThread = new Thread(ThreadChild);
+            buildThread.Start();
 
+            Console.ReadKey();
+        }
+
+
+        static void ThreadChild()
+        {
+            //while (true) {
+
+            //请求http获取打包任务
+
+            //如果取到任务
             BuildTaskBean _buildBean = new BuildTaskBean();
 
             _buildBean.TaskId = "task" + DateTime.Now.ToFileTime();
             _buildBean.ProjectId = "project1";
             _buildBean.Environment = "Release";
+            _buildBean.BranchName = "master";
 
             //根据TaskID创建一个临时目录
             string _tempDir = Path.Combine(Constants.Temp, _buildBean.TaskId);
@@ -62,16 +78,15 @@ namespace doAutoBuild
             BuildSource(_sourceCodeBean.DestPath, _projectTempDir);
 
             ////////////////////根据UnitConfig Copy 文件
-            CopyFileByUnitConfig(_buildBean,_sourceCodeBean.DestPath, _projectTempDir);
+            CopyFileByUnitConfig(_buildBean, _sourceCodeBean.DestPath, _projectTempDir);
 
             ////////////////////压缩build包，并上传到七牛云
-            UploadZip(_buildBean.TaskId,_projectTempDir);
+            UploadZip(_buildBean.TaskId, _buildBean.ProjectId, _projectTempDir);
 
-            Console.ReadKey();
+            //没有取到任务，隔段时间再去取
+            //    Thread.Sleep(_configBean.GetBuildTaskInterval * 1000);
+            //}
         }
-
-
-
 
         /// <summary>
         /// 下载源代码
@@ -227,11 +242,11 @@ namespace doAutoBuild
                             string _targetPathStr = _copyFile.GetValue("targetPath").ToString();
 
                             //string _ignore = _appFileObj.GetValue("ignore").ToString();
-                            string _sourcePath = _unitDir.FullName + Path.DirectorySeparatorChar + _sourcePathStr;
+                            string _sourcePath = Path.Combine(_unitDir.FullName , _sourcePathStr);
                             string _targetPath = _unitTempDir;
                             if (_targetPathStr != null && !"".Equals(_targetPathStr))
                             {
-                                _targetPath = _unitTempDir + Path.DirectorySeparatorChar + _targetPathStr;
+                                _targetPath = Path.Combine(_unitTempDir , _targetPathStr);
                             }
                             //copy到temp/projectid/unit/目录下面
                             FileUtils.CopyDirOrFile(_sourcePath, _targetPath);
@@ -248,7 +263,7 @@ namespace doAutoBuild
             }
         }
 
-        private static void UploadZip(string _taskId , string _projectTempDir) {
+        private static void UploadZip(string _taskId ,string _projectId, string _projectTempDir) {
             Console.WriteLine("========压缩build包==============");
             string _buildZip = _taskId + ".zip";
             string _zipPath = Path.Combine(Constants.Temp, _taskId, _buildZip);
@@ -260,6 +275,11 @@ namespace doAutoBuild
             QiniuManager.Instance().writeFile(_buildZip, File.ReadAllBytes(_zipPath));
             Console.WriteLine(_buildZip + " 文件上传成功");
 
+            /////Copy到CurrentVersion目录下面，删除 TaskID 目录
+            string _sourcePath = Path.Combine(Constants.Temp, _taskId , _projectId);
+            string _targetPath = Constants.CurrentVersion;
+            FileUtils.CopyDirOrFile(_sourcePath, _targetPath);
+            FileUtils.DeleteDir(Path.Combine(Constants.Temp, _taskId));
             ////////////////文件上传成功，把文件上传路径传给服务器
 
 

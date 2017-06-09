@@ -9,7 +9,9 @@ namespace doAutoBuild.Build
     class BuildConfigBean
     {
         private string _msbuildpath;
-    
+        private int _getBuildTaskInterval =30; //获取打包任务时间间隔
+
         public string Msbuildpath { get => _msbuildpath; set => _msbuildpath = value; }
+        public int GetBuildTaskInterval { get => _getBuildTaskInterval; set => _getBuildTaskInterval = value; }
     }
 }
