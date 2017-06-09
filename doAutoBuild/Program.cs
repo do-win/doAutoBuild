@@ -16,10 +16,14 @@ namespace doAutoBuild
 {
     class Program
     {
+
+        private static BuildConfigBean _configBean;
+
         static void Main(string[] args)
         {
 
-            BuildConfigBean _configBean = new BuildConfigBean();
+            //////////////////////读取配置文件////////////////////////////
+            _configBean = new BuildConfigBean();
 
             if (!IOUtils.FileExists(Constants.BuildConfig)) {
                 Console.WriteLine(Constants.BuildConfig + "文件不存在，配置有问题");
@@ -27,11 +31,9 @@ namespace doAutoBuild
             }
 
             string _buildConfigContent = IOUtils.GetUTF8String(Constants.BuildConfig);
-
-            JObject _buildConfigObj = JObject.Parse(_buildConfigContent);
-
             try
             {
+                JObject _buildConfigObj = JObject.Parse(_buildConfigContent);
                 _configBean.Msbuildpath = _buildConfigObj.GetValue("msbuildpath").ToString();
             }
             catch (Exception)
@@ -41,39 +43,65 @@ namespace doAutoBuild
             }
 
 
-            IDownloadSourceCode _dsc = null;
-
             BuildTaskBean _buildBean = new BuildTaskBean();
 
             _buildBean.TaskId = "task" + DateTime.Now.ToFileTime();
             _buildBean.ProjectId = "project1";
             _buildBean.Environment = "Release";
 
+            //根据TaskID创建一个临时目录
+            string _tempDir = Path.Combine(Constants.Temp, _buildBean.TaskId);
+            FileUtils.CreateDir(_tempDir);
+            string _projectTempDir = Path.Combine(_tempDir, _buildBean.ProjectId);
+            FileUtils.CreateDir(_projectTempDir);
+
+            //////////////////下载源代码
+            SourceCodeBean _sourceCodeBean = DownloadSourceCode(_buildBean);
+
+            ////////////////build源代码
+            BuildSource(_sourceCodeBean.DestPath, _projectTempDir);
+
+            ////////////////////根据UnitConfig Copy 文件
+            CopyFileByUnitConfig(_buildBean,_sourceCodeBean.DestPath, _projectTempDir);
+
+            ////////////////////压缩build包，并上传到七牛云
+            UploadZip(_buildBean.TaskId,_projectTempDir);
+
+            Console.ReadKey();
+        }
+
+
+
+
+        /// <summary>
+        /// 下载源代码
+        /// </summary>
+        /// <param name="_buildBean"></param>
+        /// <returns></returns>
+        private static SourceCodeBean DownloadSourceCode(BuildTaskBean _buildBean) {
+            IDownloadSourceCode _dsc = null;
             //根据projectid 可以读取project目录下面的Source.config 文件
-
-            SourceCodeBean _sourceCodeBean = new SourceCodeBean();
-
-            string _projectPath = Constants.Projects + Path.DirectorySeparatorChar + _buildBean.ProjectId;
-
+            SourceCodeBean _sourceCodeBean = null;
+            string _projectPath = Path.Combine(Constants.CurrentConfigProjects , _buildBean.ProjectId);
             if (!IOUtils.DirExists(_projectPath))
             { //表示文件目录不存在 配置有问题
-                Console.WriteLine("项目"+_buildBean.ProjectId + "不存在，配置有问题");
-                return;
+                Console.WriteLine("项目" + _buildBean.ProjectId + "不存在，配置有问题");
+                return _sourceCodeBean;
             }
 
-            string _sourceConfigFile = _projectPath + Path.DirectorySeparatorChar + "Source.config";
-
+            string _sourceConfigFile = Path.Combine(_projectPath , "Source.config");
             if (!IOUtils.FileExists(_sourceConfigFile))
             { //表示文件目录不存在 配置有问题
                 Console.WriteLine("Source.config 不存在，配置有问题");
-                return;
+                return _sourceCodeBean;
             }
 
-            string _sourceConfigContent =  IOUtils.GetUTF8String(_sourceConfigFile);
+            string _sourceConfigContent = IOUtils.GetUTF8String(_sourceConfigFile);
             string _sourceType = "git";
             try
             {
                 JObject _sourceConfigObj = JObject.Parse(_sourceConfigContent);
+                _sourceCodeBean = new SourceCodeBean();
                 _sourceCodeBean.SourceId = _sourceConfigObj.GetValue("SourceId").ToString();
                 _sourceCodeBean.Url = _sourceConfigObj.GetValue("Url").ToString();
                 _sourceCodeBean.Port = _sourceConfigObj.GetValue("Port").ToString();
@@ -87,62 +115,64 @@ namespace doAutoBuild
                 throw;
             }
 
-
-            if ("git".Equals(_sourceType)) {
+            if ("git".Equals(_sourceType))
+            {
                 _dsc = new GitDownloadSourceCode();
             }
 
-            string _destPath = Constants.SourceFile + Path.DirectorySeparatorChar + _sourceCodeBean.SourceId + Path.DirectorySeparatorChar + _buildBean.ProjectId + Path.DirectorySeparatorChar + _buildBean.BranchName;
-
-            FileUtils.CreateDir(_destPath);
-       
-            _sourceCodeBean.DestPath = _destPath;
+            _sourceCodeBean.DestPath = Path.Combine(Constants.SourceFile , _sourceCodeBean.SourceId , _buildBean.ProjectId , _buildBean.BranchName);
+            FileUtils.CreateDir(_sourceCodeBean.DestPath);
 
             Console.WriteLine("========去远程仓库下载代码==============");
-
-            Console.WriteLine("     下载代码到指定目录： "+_destPath);
+            Console.WriteLine("     下载代码到指定目录： " + _sourceCodeBean.DestPath);
 
             //根据sourceConfig里面的配置去远程仓库下载代码
-            if (_dsc != null) {
-                _dsc.DownloadSourceCode(_sourceCodeBean,_buildBean);
+            if (_dsc != null)
+            {
+                _dsc.DownloadSourceCode(_sourceCodeBean, _buildBean);
             }
+            return _sourceCodeBean;
+        }
 
+        /// <summary>
+        /// build 源代码
+        /// </summary>
+        /// <param name="_sourceCodeRootDir"></param>
+        /// <param name="_projectTempDir"></param>
+        private static void BuildSource(string _sourceCodeRootDir,string _projectTempDir) {
 
-            Console.WriteLine("========开始build代码==============");
-            //根据TaskID创建一个临时目录
-            string _tempDir = Constants.Temp + Path.DirectorySeparatorChar + _buildBean.TaskId;
-            FileUtils.CreateDir(_tempDir);
-            //string msbulidPath = "\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Professional\\MSBuild\\15.0\\Bin\\MSBuild.exe\"";
-
-            string _projectTempDir = _tempDir + Path.DirectorySeparatorChar + _buildBean.ProjectId;
-            FileUtils.CreateDir(_projectTempDir);
- 
+            Console.WriteLine("========开始build代码==============");   
             //找到该目录下面的所有".sln"后缀的文件
-            ArrayList _slnFiles = FileUtils.GetFiles(_destPath, "*.sln");
-
-            for (int i = 0; i< _slnFiles.Count; i++) {
+            ArrayList _slnFiles = FileUtils.GetFiles(_sourceCodeRootDir, "*.sln");
+            for (int i = 0; i < _slnFiles.Count; i++)
+            {
                 string _slnFile = Path.GetDirectoryName((string)_slnFiles[i]);
-
                 string msbulidBatPath = _projectTempDir + Path.DirectorySeparatorChar + "msbuild.bat";
                 StringBuilder _sb = new StringBuilder();
                 string changeDir = "cd /d " + _slnFile;
-                
                 //string changeDir = "cd /d " + _destPath + Path.DirectorySeparatorChar + "UnitA";
                 _sb.Append(changeDir + "\n");
-                _sb.Append("\""+ _configBean.Msbuildpath + "\"");
+                _sb.Append("\"" + _configBean.Msbuildpath + "\"");
                 IOUtils.WriteString(msbulidBatPath, _sb.ToString());
 
                 if (IOUtils.FileExists(msbulidBatPath))
                 {
                     Console.WriteLine(msbulidBatPath + " 文件创建成功！");
                     Console.WriteLine(CMDUtils.Execute(msbulidBatPath));
+                    //删除bat 文件
+                    FileUtils.DeleteFile(msbulidBatPath);
                 }
-              
             }
+        }
+
+        /// <summary>
+        /// 根据Unit.config Copy文件
+        /// </summary>
+        private static void CopyFileByUnitConfig(BuildTaskBean _buildBean, string _sourceCodeRootDir, string _projectTempDir) {
 
             Console.WriteLine("========根据Unit.config Copy File==============");
-
-            string _environmentPath = _projectPath + Path.DirectorySeparatorChar + Path.DirectorySeparatorChar + _buildBean.Environment;
+            string _projectPath = Path.Combine(Constants.CurrentConfigProjects, _buildBean.ProjectId);
+            string _environmentPath = Path.Combine(_projectPath, _buildBean.Environment);
             if (!IOUtils.DirExists(_environmentPath))
             { //表示文件目录不存在 配置有问题
                 Console.WriteLine(_buildBean.Environment + " 环境不存在，配置有问题");
@@ -167,14 +197,14 @@ namespace doAutoBuild
                     var _appFiles = _unitConfigObj.GetValue("AppFiles");
                     if (_appFiles != null)
                     {
-                        JArray _copyFiles = _appFiles as JArray;                 
+                        JArray _copyFiles = _appFiles as JArray;
                         foreach (JObject _copyFile in _copyFiles)
                         {
                             string _sourcePathStr = _copyFile.GetValue("sourcePath").ToString();
                             string _targetPathStr = _copyFile.GetValue("targetPath").ToString();
 
                             //string _ignore = _appFileObj.GetValue("ignore").ToString();
-                            string _sourcePath = Path.Combine(_destPath, _unitDir.Name , _sourcePathStr);         
+                            string _sourcePath = Path.Combine(_sourceCodeRootDir, _unitDir.Name, _sourcePathStr);
                             //string _sourcePath = _unitDir.FullName + Path.DirectorySeparatorChar + _sourcePathStr;
                             string _targetPath = _unitTempDir;
                             if (_targetPathStr != null && !"".Equals(_targetPathStr))
@@ -215,39 +245,26 @@ namespace doAutoBuild
                     Console.WriteLine("Unit.config 配置内容有误！");
                     throw;
                 }
-
             }
+        }
 
-            //Console.WriteLine("========Copy bin目录==============");
-            ////build完成需要把bin目录 Copy 到
-            //foreach (DirectoryInfo _unitDir in _unitDirs)
-            //{
-            //    ArrayList _binDirs = FileUtils.FindDirFullPath(Path.Combine(_destPath, _unitDir.Name), "bin");
-            //    foreach (string _binDirPath in _binDirs)
-            //    {
-            //        if (_binDirPath != null) { //找到当前Unit 下面的bin 目录
-            //            string _targetPath = Path.Combine(_projectTempDir, _unitDir.Name);
-            //            FileUtils.CopyDirOrFile(_binDirPath, _targetPath);
-            //            Console.WriteLine("从 " + _binDirPath + " Copy 到 "+ _targetPath);
-            //        }
-            //    }
-            //}
-
+        private static void UploadZip(string _taskId , string _projectTempDir) {
             Console.WriteLine("========压缩build包==============");
-
-            string _buildZip = _buildBean.TaskId + ".zip";
-
-            string _zipPath = Path.Combine(_tempDir, _buildZip);
-            ZipFile.CreateFromDirectory(_projectTempDir, _zipPath , CompressionLevel.Fastest, true);
+            string _buildZip = _taskId + ".zip";
+            string _zipPath = Path.Combine(Constants.Temp, _taskId, _buildZip);
+            ZipFile.CreateFromDirectory(_projectTempDir, _zipPath, CompressionLevel.Fastest, true);
             Console.WriteLine("     压缩 " + _projectTempDir + " 目录，生成" + _buildZip + " 文件");
 
             Console.WriteLine("========上传build包到七牛==============");
-
             Console.WriteLine("     上传 " + _buildZip + " 文件到七牛");
             QiniuManager.Instance().writeFile(_buildZip, File.ReadAllBytes(_zipPath));
-            Console.WriteLine( _buildZip + " 文件上传成功");
+            Console.WriteLine(_buildZip + " 文件上传成功");
 
-            Console.ReadKey();
+            ////////////////文件上传成功，把文件上传路径传给服务器
+
+
         }
+
+
     }
 }

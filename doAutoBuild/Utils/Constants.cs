@@ -28,7 +28,7 @@ namespace doAutoBuild.Utils
 
         public static string TargetServices = CurrentConfig + Path.DirectorySeparatorChar + "TargetServices";
 
-        public static string Projects = CurrentConfig + Path.DirectorySeparatorChar + "Projects";
+        public static string CurrentConfigProjects = CurrentConfig + Path.DirectorySeparatorChar + "Projects";
 
 
         ////////////////////////////////////////////////////////////

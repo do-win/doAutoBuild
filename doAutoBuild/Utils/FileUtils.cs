@@ -102,8 +102,20 @@ namespace doAutoBuild.Utils
             Directory.Delete(directoryPath);    //删除空文件夹
         }
 
+        public static void DeleteFile(string filePath)
+        {
+          
+                if (IOUtils.FileExists(filePath))
+                {
+                    FileInfo fi = new FileInfo(filePath);
+                    if (fi.Attributes.ToString().IndexOf("ReadOnly") != -1)
+                        fi.Attributes = FileAttributes.Normal;
+                    File.Delete(filePath);     //删除文件   
+                }
+               
+        }
 
-   
+
         private static void GetFiles(DirectoryInfo directory, string pattern ,ArrayList _fileLists)
         {
 
