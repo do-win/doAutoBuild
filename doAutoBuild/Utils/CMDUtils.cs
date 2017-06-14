@@ -1,4 +1,5 @@
-﻿using System;
+﻿using doAutoBuild.Log;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,7 +10,7 @@ namespace doAutoBuild.Utils
     static class CMDUtils
     {
 
-        public static string Execute (String command) {
+        public static int Execute (LogEngin _logEngin ,String command) {
 
             System.Diagnostics.Process p = new System.Diagnostics.Process();
             p.StartInfo.FileName = "cmd.exe";
@@ -29,7 +30,6 @@ namespace doAutoBuild.Utils
             //同类的符号还有&&和||前者表示必须前一个命令执行成功才会执行后面的命令，后者表示必须前一个命令执行失败才会执行后面的命令
 
             //获取cmd窗口的输出信息
-            string output = p.StandardOutput.ReadToEnd();
 
             //StreamReader reader = p.StandardOutput;
             //string line=reader.ReadLine();
@@ -39,10 +39,22 @@ namespace doAutoBuild.Utils
             //    line = reader.ReadLine();
             //}
 
+            int exitCode = p.ExitCode;
+            string output = p.StandardOutput.ReadToEnd();
+            if (String.IsNullOrEmpty(output)) {
+                _logEngin.Info(output);
+            }
+
+            string error = p.StandardError.ReadToEnd();
+            if (String.IsNullOrEmpty(error))
+            {
+                _logEngin.Error(new Exception(error));
+            }    
+
             p.WaitForExit();//等待程序执行完退出进程
             p.Close();
 
-            return output;
+            return exitCode;
         }
 
         public static void ExecuteCommand(string command)
