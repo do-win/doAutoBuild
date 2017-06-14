@@ -135,6 +135,27 @@ namespace doAutoBuild.Utils
         }
 
         /// <summary>
+        /// 获取目录下面所有的文件
+        /// </summary>
+        /// <param name="directory"></param>
+        /// <param name="_fileLists"></param>
+        public static void GetFiles(DirectoryInfo directory, ArrayList _fileLists)
+        {
+            if (directory.Exists)
+            {
+                foreach (FileInfo info in directory.EnumerateFiles())
+                {
+                    _fileLists.Add(info.FullName.ToString());
+                }
+
+                foreach (DirectoryInfo info in directory.GetDirectories())
+                {
+                    GetFiles(info, _fileLists);
+                }
+            }
+        }
+
+        /// <summary>
         /// 得某文件夹下所有的文件
         /// </summary>
         /// <param name="directory">文件夹路径</param>
