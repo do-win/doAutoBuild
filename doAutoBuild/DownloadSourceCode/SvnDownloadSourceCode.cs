@@ -1,4 +1,5 @@
 ﻿using doAutoBuild.Build;
+using doAutoBuild.Log;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +10,7 @@ namespace doAutoBuild.DownloadSourceCode
 {
     class SvnDownloadSourceCode : IDownloadSourceCode
     {
-        public void DownloadSourceCode(SourceCodeBean _sourceCodeBean, BuildTaskBean _buildTaskBean)
+        public void DownloadSourceCode(LogEngin _logEngin, SourceCodeBean _sourceCodeBean, BuildTaskBean _buildTaskBean)
         {
             throw new NotImplementedException();
         }

@@ -53,8 +53,8 @@ namespace doAutoBuild
             Thread buildThread = new Thread(BuildThreadChild);
             buildThread.Start();
 
-            Thread deployThread = new Thread(DeployThreadChild);
-            deployThread.Start();
+            //Thread deployThread = new Thread(DeployThreadChild);
+            //deployThread.Start();
 
             Console.ReadKey();
         }
@@ -67,7 +67,7 @@ namespace doAutoBuild
             //请求http获取打包任务
 
             //如果取到任务
-            LogEngin _logEngin = new LogEngin("取到打包任务，TaskID " + _taskId);
+            LogEngin _logEngin = new LogEngin("打包", _taskId);
             BuildTaskBean _buildBean = new BuildTaskBean();
 
             _buildBean.TaskId = _taskId;
@@ -88,9 +88,14 @@ namespace doAutoBuild
             //上传日志文件
             string _log = _logEngin.ToHtml();
 
+            IOUtils.WriteUTF8String(Path.Combine(Constants.Temp, _taskId + "_1.html"), _log);
+
+            Console.WriteLine("Build完成");
+
             //没有取到任务，隔段时间再去取
             //    Thread.Sleep(_configBean.GetBuildTaskInterval * 1000);
             //}
+            DeployThreadChild();
         }
 
         static void DeployThreadChild()
@@ -98,15 +103,16 @@ namespace doAutoBuild
             //while (true) {
 
             //请求http获取部署任务
-            LogEngin _logEngin = new LogEngin("取到部署任务，TaskID " + _taskId);
+            LogEngin _logEngin = new LogEngin("部署", _taskId);
             //如果取到任务
             DeployTaskBean _deployBean = new DeployTaskBean();
             _deployBean.Environment = "Release";
             _deployBean.UpgradeType = "all";
             _deployBean.AutoUpgrade = true;
             _deployBean.TaskId = _taskId;
-
-            string _projectTempDir = Path.Combine(Constants.Temp, _deployBean.TaskId, _deployBean.ProjectId);
+            _deployBean.ProjectId = "project1";
+            string _taskTempDir = Path.Combine(Constants.Temp, _deployBean.TaskId);
+            string _projectTempDir = Path.Combine(_taskTempDir, _deployBean.ProjectId);
 
             //E:\AutoBuildHome\SourceFile\myProjct\project1\master
             ////////////////////根据UnitConfig Copy 文件
@@ -116,7 +122,9 @@ namespace doAutoBuild
                 return;
             }
             CopyFileByUnitConfig(_logEngin, _deployBean, _sourceCodeRootDirs[_deployBean.TaskId].ToString(), _projectTempDir);
+            string _zipSourceDir = _projectTempDir;
 
+            ArrayList _modifyFiles = new ArrayList();
             ///////////////////判断是否增量升级
             if (_deployBean.AutoUpgrade)
             {
@@ -126,7 +134,8 @@ namespace doAutoBuild
 
                 ArrayList _files = new ArrayList();
                 FileUtils.GetFiles(new DirectoryInfo(_sourcePath), _files);
-                ArrayList _modifyFiles = new ArrayList();
+                string _outTempDir = Path.Combine(_taskTempDir, "upgrade");
+                FileUtils.CreateDir(_outTempDir);
 
                 foreach (string _file in _files)
                 {
@@ -140,21 +149,54 @@ namespace doAutoBuild
                         {
                             _logEngin.Info("不一样的文件：" + _file);
                             _modifyFiles.Add(_file);
+                            string _outPath = _file.Replace(_taskTempDir, _outTempDir);
+                            FileUtils.CopyDirOrFile(_file, _outPath);
                         }
                     }
                     else
                     {
                         _logEngin.Info("新增文件：" + _file);
                         _modifyFiles.Add(_file);
+                        string _outPath = _file.Replace(_taskTempDir, _outTempDir);
+                        FileUtils.CopyDirOrFile(_file, _outPath);
                     }
                 }
+
+                if (_modifyFiles.Count > 0)
+                {
+                    _zipSourceDir = Path.Combine(_outTempDir, _deployBean.ProjectId);
+                }
+                else
+                {
+                    _logEngin.Error(new Exception("选择增量升级但无文件改动，部署失败"));
+                }
+
             }
 
-            ////////////////////压缩build包，并上传到七牛云
-            UploadZip(_logEngin, _deployBean.TaskId, _deployBean.ProjectId, _projectTempDir);
+            if (!_deployBean.AutoUpgrade || _modifyFiles.Count > 0)
+            {
+                //压缩文件
+                string _buildZip = _taskId + ".zip";
+                _logEngin.Info("压缩文件 " + _buildZip);
+                string _zipPath = Path.Combine(Constants.Temp, _taskId, _buildZip);
+                ZipFile.CreateFromDirectory(_zipSourceDir, _zipPath, CompressionLevel.Fastest, true);
+                _logEngin.Info("     压缩 " + _projectTempDir + " 目录，生成" + _buildZip + " 文件");
+                _logEngin.Info("     上传 " + _buildZip + " 文件到七牛");
 
+                ////////////////////压缩build包，并上传到七牛云
+                UploadZip(_logEngin, _deployBean.TaskId, _deployBean.ProjectId, _zipPath, _buildZip);
+            }
+
+            //删除临时目录
+            FileUtils.DeleteDir(Path.Combine(Constants.Temp, _taskId));
+            ////////////////文件上传成功，把文件上传路径传给服务器
+            _logEngin.Info("本地Deployed完成通知服务器");
             //上传日志文件
             string _log = _logEngin.ToHtml();
+
+            IOUtils.WriteUTF8String(Path.Combine(Constants.Temp, _taskId + "_2.html"), _log);
+
+            Console.WriteLine("部署完成");
 
             //没有取到任务，隔段时间再去取
             //    Thread.Sleep(_configBean.GetBuildTaskInterval * 1000);
@@ -218,7 +260,7 @@ namespace doAutoBuild
             //根据sourceConfig里面的配置去远程仓库下载代码
             if (_dsc != null)
             {
-                _dsc.DownloadSourceCode(_sourceCodeBean, _buildBean);
+                _dsc.DownloadSourceCode(_logEngin, _sourceCodeBean, _buildBean);
             }
             return _sourceCodeBean;
         }
@@ -351,15 +393,8 @@ namespace doAutoBuild
             }
         }
 
-        private static void UploadZip(LogEngin _logEngin, string _taskId, string _projectId, string _projectTempDir)
+        private static void UploadZip(LogEngin _logEngin, string _taskId, string _projectId, string _zipPath, string _buildZip)
         {
-            string _buildZip = _taskId + ".zip";
-            _logEngin.Info("压缩文件 " + _buildZip);
-            string _zipPath = Path.Combine(Constants.Temp, _taskId, _buildZip);
-            ZipFile.CreateFromDirectory(_projectTempDir, _zipPath, CompressionLevel.Fastest, true);
-            _logEngin.Info("     压缩 " + _projectTempDir + " 目录，生成" + _buildZip + " 文件");
-
-            _logEngin.Info("     上传 " + _buildZip + " 文件到七牛");
             string _zipUrl = "";
             try
             {
@@ -388,10 +423,6 @@ namespace doAutoBuild
 
             FileUtils.CopyDirOrFile(_sourcePath, _targetPath);
             _logEngin.Info("从 " + _sourcePath + " Copy 到" + _targetPath + " 目录");
-            FileUtils.DeleteDir(Path.Combine(Constants.Temp, _taskId));
-            ////////////////文件上传成功，把文件上传路径传给服务器
-            _logEngin.Info("本地Deployed Success 通知服务器");
-
         }
 
 

@@ -10,11 +10,13 @@ namespace doAutoBuild.Log
     class LogEngin : ILog
     {
         private ArrayList _logs = new ArrayList();
-        private string _taskDesc;
+        private string _taskName;
+        private string _taskId;
 
-        public LogEngin(string taskDesc)
+        public LogEngin(string _taskName , string _taskId)
         {
-            this._taskDesc = taskDesc;
+            this._taskName = _taskName;
+            this._taskId = _taskId;
         }
 
         public void Debug(string message)
@@ -43,12 +45,12 @@ namespace doAutoBuild.Log
             StringBuilder sb = new StringBuilder();
             sb.Append("<html>");
             sb.Append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />");
-            sb.Append("<head>自动Build报告");
+            sb.Append("<head>"+ this._taskName + "报告");
             sb.Append("<table cellspacing=\"0\" cellpadding=\"4\" border=\"1\" bordercolor=\"#224466\" width=\"100%\" style=\"font-family: arial,sans-serif; font-size: x-small;\">");
             sb.Append("<tr>");
             sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">任务ID</th>");
-            sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">操作系统</th>");
-            sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">打包类型</th>");
+            //sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">操作系统</th>");
+            //sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">打包类型</th>");
             sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">开始时间</th>");
             sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">结束时间</th>");
             sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">打包时间</th>");
@@ -57,9 +59,9 @@ namespace doAutoBuild.Log
             sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">建议</th>");
             sb.Append("</tr>");
 
-            String color = "#000000";
+            string color = "#000000";
             sb.Append("<tr>");
-            //sb.Append("<td title=\"任务ID\"><font color=\"" + color + "\">" + taskId + "</td>");
+            sb.Append("<td title=\"任务ID\"><font color=\"" + color + "\">" + _taskId + "</td>");
             //sb.Append("<td title=\"操作系统\"><font color=\"" + color + "\">" + Factory.Instance().getEnv().getOSName()+ "</td>");
             //sb.Append("<td title=\"打包类型\"><font color=\"" + color + "\">" + Factory.Instance().getBuildType() + "</td>");
             //sb.Append("<td title=\"开始时间\"><font color=\"" + color + "\">" + TimeHelper.getSTime(startTime) + "</td>");
@@ -84,7 +86,6 @@ namespace doAutoBuild.Log
             sb.Append("</head>");
             sb.Append("<body>");
             sb.Append("<br>");
-            sb.Append("步骤：" + this._taskDesc);
             sb.Append("<table cellspacing=\"0\" cellpadding=\"4\" border=\"1\" bordercolor=\"#224466\" width=\"100%\" style=\"font-family: arial,sans-serif; font-size: x-small;\">");
             sb.Append("<tr>");
             sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">时间</th>");

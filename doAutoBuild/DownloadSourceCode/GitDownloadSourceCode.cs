@@ -1,4 +1,5 @@
 ﻿using doAutoBuild.Build;
+using doAutoBuild.Log;
 using doAutoBuild.Utils;
 using System;
 using System.Collections.Generic;
@@ -10,7 +11,7 @@ namespace doAutoBuild.DownloadSourceCode
 {
     class GitDownloadSourceCode : IDownloadSourceCode
     {
-        public void DownloadSourceCode(SourceCodeBean _sourceCodeBean, BuildTaskBean _buildTaskBean)
+        public void DownloadSourceCode(LogEngin _logEngin, SourceCodeBean _sourceCodeBean, BuildTaskBean _buildTaskBean)
         {
 
             string branch = _buildTaskBean.BranchName;
@@ -23,9 +24,7 @@ namespace doAutoBuild.DownloadSourceCode
                 command = command + "-b " + branch + " ";
             command = command + "--progress -v " + url + " " + dest;
 
-            CMDUtils.Execute(command);
-            //Console.WriteLine("out: \n"+CMDUtils.Execute(command));
-
+            CMDUtils.Execute(_logEngin, command);
         }
     }
 }

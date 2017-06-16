@@ -10,7 +10,8 @@ namespace doAutoBuild.Utils
     static class CMDUtils
     {
 
-        public static int Execute (LogEngin _logEngin ,String command) {
+        public static int Execute(LogEngin _logEngin, String command)
+        {
 
             System.Diagnostics.Process p = new System.Diagnostics.Process();
             p.StartInfo.FileName = "cmd.exe";
@@ -39,18 +40,19 @@ namespace doAutoBuild.Utils
             //    line = reader.ReadLine();
             //}
 
-            int exitCode = p.ExitCode;
             string output = p.StandardOutput.ReadToEnd();
-            if (String.IsNullOrEmpty(output)) {
+            if (!String.IsNullOrEmpty(output))
+            {
                 _logEngin.Info(output);
             }
 
             string error = p.StandardError.ReadToEnd();
-            if (String.IsNullOrEmpty(error))
+            if (!String.IsNullOrEmpty(error))
             {
                 _logEngin.Error(new Exception(error));
-            }    
+            }
 
+            int exitCode = p.ExitCode;
             p.WaitForExit();//等待程序执行完退出进程
             p.Close();
 

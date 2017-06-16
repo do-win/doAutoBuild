@@ -55,18 +55,22 @@
   <ItemGroup>
     <Compile Include="Build\BuildConfigBean.cs" />
     <Compile Include="Build\BuildTaskBean.cs" />
+    <Compile Include="Deploy\DeployTaskBean.cs" />
     <Compile Include="DownloadSourceCode\GitDownloadSourceCode.cs" />
     <Compile Include="DownloadSourceCode\IDownloadSourceCode.cs" />
     <Compile Include="DownloadSourceCode\SourceCodeBean.cs" />
     <Compile Include="DownloadSourceCode\SvnDownloadSourceCode.cs" />
+    <Compile Include="Log\ILog.cs" />
+    <Compile Include="Log\LogBean.cs" />
+    <Compile Include="Log\LogEngin.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Storage\QiniuManager.cs" />
     <Compile Include="Utils\CmdUtils.cs" />
     <Compile Include="Utils\Constants.cs" />
-    <Compile Include="Utils\LogServiceLocal.cs" />
     <Compile Include="Utils\FileUtils.cs" />
     <Compile Include="Utils\IOUtils.cs" />
+    <Compile Include="Utils\LogUtils.cs" />
     <Compile Include="Utils\MD5Utils.cs" />
   </ItemGroup>
   <ItemGroup>

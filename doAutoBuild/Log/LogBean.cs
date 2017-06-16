@@ -18,7 +18,7 @@ namespace doAutoBuild.Log
         public string Message { get => _message; set => _message = value; }
 
 
-        public LogBean(Exception ex) : this(ex.Data.ToString())
+        public LogBean(Exception ex) : this(ex.ToString())
         {
             this._level = "error";
         }
