@@ -120,7 +120,7 @@ namespace doAutoBuild
                 string _logUrl = UploadLogFile(_logEngin, _logPath);
 
 
-                //请求http获取打包任务
+                //反馈打包结果
                 _cDate = DateTime.Now.ToFileTime();
                 _dictData.Clear();
 
@@ -311,7 +311,8 @@ namespace doAutoBuild
                 _logEngin.Info("组装资源文件完成，通知部署服务器去Qiniu下载资源文件");
                 Console.WriteLine("组装资源文件完成，通知部署服务器去Qiniu下载资源文件");
 
-                if (_logEngin.IsSuccess && _deployBean.DeployQiniuUrl !=null && _deployBean.DeployQiniuUrl.Length > 0) {               
+                if (_logEngin.IsSuccess && _deployBean.DeployQiniuUrl !=null && _deployBean.DeployQiniuUrl.Length > 0) {
+                    _sourceCodeRootDirs.Remove(_deployBean.TaskId);
                     Dispatcher(_logEngin, _deployBean.ProjectName, _deployBean.Environment, _deployBean.DeployQiniuUrl);
                 }
             }
@@ -594,7 +595,7 @@ namespace doAutoBuild
                         {
                             JObject _serviceCofnigObj = JObject.Parse(_serviceCofnigContent);
 
-                            string _ipAddress = _serviceCofnigObj.GetValue("IpAddress").ToString();
+                            string _host = _serviceCofnigObj.GetValue("Host").ToString();
                             string _port = _serviceCofnigObj.GetValue("Port").ToString();
                             //string _sign = _serviceCofnigObj.GetValue("Sign").ToString();
                             //调用接口，参数 七牛地址，Unit名称
