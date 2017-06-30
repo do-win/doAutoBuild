@@ -21,7 +21,6 @@ namespace doAutoBuild
         private static BuildConfigBean _configBean;
         private static Hashtable _sourceCodeRootDirs = new Hashtable();
        
-        //private static string _taskId = "task" + DateTime.Now.ToFileTime();
 
         static void Main(string[] args)
         {
@@ -309,7 +308,12 @@ namespace doAutoBuild
                 _postDataStr = "Id=" + _deployBean.Id + "&State=" + _state + "&Url=" + _deployBean.DeployQiniuUrl + "&TimeStamp=" + _cDate + "&Sign=" + _sign;
                 HttpUtils.HttpPut(Constants.GET_DEPLOY_TASK, _postDataStr);
                 /////
-                Console.WriteLine("部署完成");
+                _logEngin.Info("组装资源文件完成，通知部署服务器去Qiniu下载资源文件");
+                Console.WriteLine("组装资源文件完成，通知部署服务器去Qiniu下载资源文件");
+
+                if (_logEngin.IsSuccess && _deployBean.DeployQiniuUrl !=null && _deployBean.DeployQiniuUrl.Length > 0) {               
+                    Dispatcher(_logEngin, _deployBean.ProjectName, _deployBean.Environment, _deployBean.DeployQiniuUrl);
+                }
             }
             else //没有取到任务，隔段时间再去取
             {
@@ -385,6 +389,7 @@ namespace doAutoBuild
         {
             _logEngin.Info("开始build代码");
             //找到该目录下面的所有".sln"后缀的文件
+            //TODO 可能有点耗时，排除.git 目录
             ArrayList _slnFiles = FileUtils.GetFiles(_sourceBean.DestPath, "*.sln");
             for (int i = 0; i < _slnFiles.Count; i++)
             {
@@ -548,8 +553,64 @@ namespace doAutoBuild
             }
 
             return _logUrl;
-        } 
+        }
 
+        //把build文件在Qiniu上面的地址分发给每台服务器
+        public static void Dispatcher(LogEngin _logEngin, string _projectName, string _environment, string _zipUrl) {
 
+            //读取当前环境下面的Environment.config文件，获取需要部署的服务器列表，然后循环调用各自服务器的接口
+            string _environmentConfig = Path.Combine(Constants.CurrentConfigProjects, _projectName, _environment, "Environment.config");
+
+            if (!IOUtils.FileExists(_environmentConfig))
+            {
+                LogUtils.Error(null, new Exception(_environmentConfig + "文件不存在，配置有问题"));
+                return;
+            }
+
+            string _environmentConfigContent = IOUtils.GetUTF8String(_environmentConfig);
+            try
+            {
+                JObject _environmentConfigObj = JObject.Parse(_environmentConfigContent);
+
+                foreach (var _item in _environmentConfigObj)
+                {
+                    string _unit = _item.Key;  //哪个模块
+                    JArray _serviceIds = JArray.Parse(_item.Value.ToString()); //发布到哪些服务器
+
+                    //循环调用接口发送数据
+                    foreach (string _serviceId in _serviceIds)
+                    {
+                        string _serviceCofnigPath = Path.Combine(Constants.TargetServices, _serviceId, "TargetService.config");
+
+                        if (!IOUtils.FileExists(_serviceCofnigPath))
+                        { //表示文件目录不存在 配置有问题
+                            _logEngin.Error(new Exception(_serviceId + " 对应的配置不存在，配置有问题"));
+                            continue;
+                        }
+
+                        string _serviceCofnigContent = IOUtils.GetUTF8String(_serviceCofnigPath);
+
+                        try
+                        {
+                            JObject _serviceCofnigObj = JObject.Parse(_serviceCofnigContent);
+
+                            string _ipAddress = _serviceCofnigObj.GetValue("IpAddress").ToString();
+                            string _port = _serviceCofnigObj.GetValue("Port").ToString();
+                            //string _sign = _serviceCofnigObj.GetValue("Sign").ToString();
+                            //调用接口，参数 七牛地址，Unit名称
+
+                        }
+                        catch (Exception _ex)
+                        {
+                            throw new Exception(_serviceCofnigPath + " 配置文件内容有误！ \n" + _ex);
+                        }
+                    }
+                }
+            }
+            catch (Exception _ex)
+            {
+                throw new Exception(_environmentConfig + " 配置文件内容有误！ \n" + _ex);
+            }
+        }
     }
 }
