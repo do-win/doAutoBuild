@@ -12,12 +12,16 @@ namespace doAutoBuild.Log
         private ArrayList _logs = new ArrayList();
         private string _taskName;
         private string _taskId;
+        
+        private bool _isSuccess = true; //是否成功
 
         public LogEngin(string _taskName , string _taskId)
         {
             this._taskName = _taskName;
             this._taskId = _taskId;
         }
+
+        public bool IsSuccess { get => _isSuccess; set => _isSuccess = value; }
 
         public void Debug(string message)
         {
@@ -51,12 +55,12 @@ namespace doAutoBuild.Log
             sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">任务ID</th>");
             //sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">操作系统</th>");
             //sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">打包类型</th>");
-            sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">开始时间</th>");
-            sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">结束时间</th>");
-            sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">打包时间</th>");
+            //sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">开始时间</th>");
+            //sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">结束时间</th>");
+            //sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">打包时间</th>");
             sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">打包结果</th>");
-            sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">失败原因</th>");
-            sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">建议</th>");
+            //sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">失败原因</th>");
+            //sb.Append("<th style=\"background: #808000; color: #FFFFFF; text-align: left;\">建议</th>");
             sb.Append("</tr>");
 
             string color = "#000000";
@@ -67,10 +71,13 @@ namespace doAutoBuild.Log
             //sb.Append("<td title=\"开始时间\"><font color=\"" + color + "\">" + TimeHelper.getSTime(startTime) + "</td>");
             //sb.Append("<td title=\"结束时间\"><font color=\"" + color + "\">" + TimeHelper.getSTime(endTime) + "</td>");
             //sb.Append("<td title=\"打包时间\"><font color=\"" + color + "\">" + cost() + "</td>");
-            //String result = "成功";
-            //if (isFailed())
-            //    result = "失败";
-            //sb.Append("<td title=\"打包结果\"><font color=\"" + color + "\">" + result + "</td>");
+            String result = "成功";
+            if (!IsSuccess)
+            {
+                color = "#FF0000";
+                result = "失败";
+            }
+            sb.Append("<td title=\"打包结果\"><font color=\"" + color + "\">" + result + "</td>");
 
             //         color = "#FF0000";
             //         String suggestion = "";

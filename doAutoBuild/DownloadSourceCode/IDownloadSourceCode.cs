@@ -10,6 +10,6 @@ namespace doAutoBuild.DownloadSourceCode
 {
     interface IDownloadSourceCode
     {
-        void DownloadSourceCode(LogEngin _logEngin, SourceCodeBean _sourceCodeBean, BuildTaskBean _buildTaskBean);
+        int DownloadSourceCode(LogEngin _logEngin, SourceCodeBean _sourceCodeBean, BuildTaskBean _buildTaskBean);
     }
 }

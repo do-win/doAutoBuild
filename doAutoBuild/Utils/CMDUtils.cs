@@ -49,7 +49,7 @@ namespace doAutoBuild.Utils
             string error = p.StandardError.ReadToEnd();
             if (!String.IsNullOrEmpty(error))
             {
-                _logEngin.Error(new Exception(error));
+                _logEngin.Info(error);
             }
 
             int exitCode = p.ExitCode;

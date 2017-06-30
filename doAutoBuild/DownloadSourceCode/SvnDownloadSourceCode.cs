@@ -10,7 +10,7 @@ namespace doAutoBuild.DownloadSourceCode
 {
     class SvnDownloadSourceCode : IDownloadSourceCode
     {
-        public void DownloadSourceCode(LogEngin _logEngin, SourceCodeBean _sourceCodeBean, BuildTaskBean _buildTaskBean)
+        public int DownloadSourceCode(LogEngin _logEngin, SourceCodeBean _sourceCodeBean, BuildTaskBean _buildTaskBean)
         {
             throw new NotImplementedException();
         }

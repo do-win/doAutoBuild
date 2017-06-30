@@ -69,9 +69,12 @@
     <Compile Include="Utils\CmdUtils.cs" />
     <Compile Include="Utils\Constants.cs" />
     <Compile Include="Utils\FileUtils.cs" />
+    <Compile Include="Utils\HttpUtils.cs" />
     <Compile Include="Utils\IOUtils.cs" />
     <Compile Include="Utils\LogUtils.cs" />
     <Compile Include="Utils\MD5Utils.cs" />
+    <Compile Include="Utils\SignData.cs" />
+    <Compile Include="Utils\TextHelper.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
