@@ -25,7 +25,8 @@ namespace doAutoBuild
         static void Main(string[] args)
         {
 
-            _sourceCodeRootDirs.Add("77f74579412c40a68164b7809c4026fe", "E:\\AutoBuildHome\\SourceFile\\myProjct\\liuliang\\master");
+            //_sourceCodeRootDirs.Add("89cd1c54c84e42b9bdd649590bcffc77", "E:\\AutoBuildHome\\SourceFile\\myProjct\\liuliang\\master");
+            //_sourceCodeRootDirs.Add("d8e6f38edc4f416abaf1d160854233c4", "E:\\AutoBuildHome\\SourceFile\\myProjct\\crm_master\\master");
             //////////////////////读取配置文件////////////////////////////
             _configBean = new BuildConfigBean();
 
@@ -51,8 +52,8 @@ namespace doAutoBuild
                 throw;
             }
 
-            //Thread buildThread = new Thread(BuildThreadChild);
-            //buildThread.Start();
+            Thread buildThread = new Thread(BuildThreadChild);
+            buildThread.Start();
 
             Thread deployThread = new Thread(DeployThreadChild);
             deployThread.Start();
@@ -63,262 +64,270 @@ namespace doAutoBuild
 
         static void BuildThreadChild()
         {
-            //while (true) {
-
-            //请求http获取打包任务
-            long _cDate = DateTime.Now.ToFileTime();
-            Dictionary<string, object> _dictData = new Dictionary<string, object>();
-            _dictData.Add("TimeStamp", _cDate);
-            var _sign = SignData.Md5SignDict(_configBean.SecurityKey, _dictData);
-            string _postDataStr = "TimeStamp=" + _cDate + "&Sign=" + _sign;
-            string _result = HttpUtils.HttpGet(Constants.GET_BUILD_TASK, _postDataStr);
-
-            //如果取到任务
-            if (_result != null && _result.Length > 0)
+            while (true)
             {
-                BuildTaskBean _buildBean = new BuildTaskBean();
-                try
-                {
-                    JObject _buildConfigObj = JObject.Parse(_result);
-                    _buildBean.TaskId = _buildConfigObj.GetValue("Id").ToString();
-                    _buildBean.ProjectId = _buildConfigObj.GetValue("ProjectId").ToString();
-                    _buildBean.ProjectName = _buildConfigObj.GetValue("ProjectName").ToString();
-                    _buildBean.BranchName = _buildConfigObj.GetValue("BranchName").ToString();
-                }
-                catch (Exception ex)
-                {
-                    LogUtils.Error(null, new Exception("解析打包任务数据请求失败 " + _result));
-                    LogUtils.Error(null, ex);
-                    throw;
-                }
 
-                LogEngin _logEngin = new LogEngin(_buildBean.ProjectName + " 项目打包" , _buildBean.TaskId);
-
-                //根据TaskID创建一个临时目录
-                string _projectTempDir = Path.Combine(Constants.Temp, _buildBean.TaskId, _buildBean.ProjectName);
-                FileUtils.CreateDir(_projectTempDir);
-                _logEngin.Info("创建 " + _projectTempDir + " 临时目录");
-
-                //////////////////下载源代码
-                try
-                {
-                    SourceCodeBean _sourceCodeBean = DownloadSourceCode(_logEngin, _buildBean);          
-                    ////////////////build源代码
-                    BuildSource(_logEngin, _buildBean, _sourceCodeBean, _projectTempDir);               
-                }
-                catch (Exception ex)
-                {
-                    ////////build失败
-                    _logEngin.Error(ex);
-                    _logEngin.IsSuccess = false;
-                }
-
-                //上传日志文件
-                string _log = _logEngin.ToHtml();
-                string _logPath = Path.Combine(Constants.Temp, _buildBean.TaskId + ".html");
-                IOUtils.WriteUTF8String(_logPath, _log);
-                string _logUrl = UploadLogFile(_logEngin, _logPath);
-
-
-                //反馈打包结果
-                _cDate = DateTime.Now.ToFileTime();
-                _dictData.Clear();
-
-                int _state = (_logEngin.IsSuccess ? 2 : 1);
-
+                //请求http获取打包任务
+                long _cDate = DateTime.Now.ToFileTime();
+                Dictionary<string, object> _dictData = new Dictionary<string, object>();
                 _dictData.Add("TimeStamp", _cDate);
-                _dictData.Add("Id", _buildBean.TaskId);
-                _dictData.Add("State", _state);
-                _dictData.Add("LogUrl", _logUrl);
+                var _sign = SignData.Md5SignDict(_configBean.SecurityKey, _dictData);
+                string _postDataStr = "TimeStamp=" + _cDate + "&Sign=" + _sign;
+                string _result = HttpUtils.HttpGet(Constants.GET_BUILD_TASK, _postDataStr);
 
-                _sign = SignData.Md5SignDict(_configBean.SecurityKey, _dictData);
+                //如果取到任务
+                if (_result != null && _result.Length > 0 && !"null".Equals(_result))
+                {
+                    BuildTaskBean _buildBean = new BuildTaskBean();
+                    try
+                    {
+                        JObject _buildConfigObj = JObject.Parse(_result);
+                        _buildBean.TaskId = _buildConfigObj.GetValue("Id").ToString();
+                        _buildBean.ProjectId = _buildConfigObj.GetValue("ProjectId").ToString();
+                        _buildBean.ProjectName = _buildConfigObj.GetValue("ProjectName").ToString();
+                        _buildBean.BranchName = _buildConfigObj.GetValue("BranchName").ToString();
+                    }
+                    catch (Exception ex)
+                    {
+                        LogUtils.Error(null, new Exception("解析打包任务数据请求失败 " + _result));
+                        LogUtils.Error(null, ex);
+                        throw;
+                    }
 
-                _postDataStr = "Id=" + _buildBean.TaskId+ "&State=" + _state + "&LogUrl=" + _logUrl + "&TimeStamp=" + _cDate + "&Sign=" + _sign;
-                HttpUtils.HttpPut(Constants.GET_BUILD_TASK, _postDataStr);
+                    LogEngin _logEngin = new LogEngin(_buildBean.ProjectName + " 项目打包", _buildBean.TaskId);
 
-                Console.WriteLine("Build完成");
-            }
-            else //没有取到任务，隔段时间再去取
-            {
-                Thread.Sleep(_configBean.GetBuildTaskInterval * 1000);
+                    //根据TaskID创建一个临时目录
+                    string _projectTempDir = Path.Combine(Constants.Temp, _buildBean.TaskId, _buildBean.ProjectName);
+                    FileUtils.CreateDir(_projectTempDir);
+                    _logEngin.Info("创建 " + _projectTempDir + " 临时目录");
+
+                    //////////////////下载源代码
+                    try
+                    {
+                        SourceCodeBean _sourceCodeBean = DownloadSourceCode(_logEngin, _buildBean);
+                        ////////////////build源代码
+                        BuildSource(_logEngin, _buildBean, _sourceCodeBean, _projectTempDir);
+                    }
+                    catch (Exception ex)
+                    {
+                        ////////build失败
+                        _logEngin.Error(ex);
+                        _logEngin.IsSuccess = false;
+                    }
+
+                    //上传日志文件
+                    string _log = _logEngin.ToHtml();
+                    string _logPath = Path.Combine(Constants.Temp, _buildBean.TaskId + ".html");
+                    IOUtils.WriteUTF8String(_logPath, _log);
+                    string _logUrl = UploadLogFile(_logEngin, _logPath);
+
+
+                    //反馈打包结果
+                    _cDate = DateTime.Now.ToFileTime();
+                    _dictData.Clear();
+
+                    int _state = (_logEngin.IsSuccess ? 2 : 1);
+
+                    _dictData.Add("TimeStamp", _cDate);
+                    _dictData.Add("Id", _buildBean.TaskId);
+                    _dictData.Add("State", _state);
+                    _dictData.Add("LogUrl", _logUrl);
+
+                    _sign = SignData.Md5SignDict(_configBean.SecurityKey, _dictData);
+
+                    JObject _postDataJson = new JObject();
+                    _postDataJson.Add("Id", _buildBean.TaskId);
+                    _postDataJson.Add("State", _state);
+                    _postDataJson.Add("LogUrl", _logUrl);
+                    _postDataJson.Add("TimeStamp", _cDate);
+                    _postDataJson.Add("Sign", _sign);
+
+                    HttpUtils.HttpPut(Constants.GET_BUILD_TASK, _postDataJson.ToString());
+
+                    Console.WriteLine("Build完成");
+                }
+                else //没有取到任务，隔段时间再去取
+                {
+                    Thread.Sleep(_configBean.GetBuildTaskInterval * 1000);
+                }
             }
         }
 
         static void DeployThreadChild()
         {
-            //while (true) {
-
-            //请求http获取部署任务
-            long _cDate = DateTime.Now.ToFileTime();
-            Dictionary<string, object> _dictData = new Dictionary<string, object>();
-            _dictData.Add("TimeStamp", _cDate);
-            var _sign = SignData.Md5SignDict(_configBean.SecurityKey, _dictData);
-            string _postDataStr = "TimeStamp=" + _cDate + "&Sign=" + _sign;
-            string _result = HttpUtils.HttpGet(Constants.GET_DEPLOY_TASK, _postDataStr);
-
-            //{
-            //    "Id": "d617f77f182f46379b8201de01a7dc9f",
-            //    "ProjectName": "crm",
-            //    "BranchName": "crm_master",
-            //    "Environment": "UAT",
-            //    "UpgradeType": null,
-            //    "AutoUpgrade": "false",
-            //}
-
-
-            //如果取到任务
-            if (_result != null && _result.Length > 0)
+            while (true)
             {
 
+                //请求http获取部署任务
+                long _cDate = DateTime.Now.ToFileTime();
+                Dictionary<string, object> _dictData = new Dictionary<string, object>();
+                _dictData.Add("TimeStamp", _cDate);
+                var _sign = SignData.Md5SignDict(_configBean.SecurityKey, _dictData);
+                string _postDataStr = "TimeStamp=" + _cDate + "&Sign=" + _sign;
+                string _result = HttpUtils.HttpGet(Constants.GET_DEPLOY_TASK, _postDataStr);
+
                 //如果取到任务
-                DeployTaskBean _deployBean = new DeployTaskBean();
-                try
+                if (_result != null && _result.Length > 0 && !"null".Equals(_result))
                 {
-                    JObject _buildConfigObj = JObject.Parse(_result);
-                    _deployBean.Id = _buildConfigObj.GetValue("Id").ToString();
-                    _deployBean.TaskId = _buildConfigObj.GetValue("BuildId").ToString();
-                    _deployBean.ProjectName = _buildConfigObj.GetValue("ProjectName").ToString();
-                    _deployBean.BranchName = _buildConfigObj.GetValue("BranchName").ToString();
-                    _deployBean.Environment = _buildConfigObj.GetValue("Environment").ToString();
-                    _deployBean.UpgradeType = _buildConfigObj.GetValue("UpgradeType").ToString(); ;
-                    _deployBean.AutoUpgrade = Boolean.Parse(_buildConfigObj.GetValue("AutoUpgrade").ToString());
-                }
-                catch (Exception ex)
-                {
-                    LogUtils.Error(null, new Exception("解析部署任务数据请求失败 " + _result));
-                    LogUtils.Error(null, ex);
-                    throw;
-                }
-                LogEngin _logEngin = new LogEngin("部署", _deployBean.TaskId);
 
-                try
-                {
-                    string _taskTempDir = Path.Combine(Constants.Temp, _deployBean.TaskId);
-                    string _projectTempDir = Path.Combine(_taskTempDir, _deployBean.ProjectName);
-
-                    //E:\AutoBuildHome\SourceFile\myProjct\project1\master
-                    ////////////////////根据UnitConfig Copy 文件
-                    if (_sourceCodeRootDirs.ContainsKey(_deployBean.TaskId))
+                    //如果取到任务
+                    DeployTaskBean _deployBean = new DeployTaskBean();
+                    try
                     {
-                        CopyFileByUnitConfig(_logEngin, _deployBean, _sourceCodeRootDirs[_deployBean.TaskId].ToString(), _projectTempDir);
-                        string _zipSourceDir = _projectTempDir;
+                        JObject _buildConfigObj = JObject.Parse(_result);
+                        _deployBean.Id = _buildConfigObj.GetValue("Id").ToString();
+                        _deployBean.TaskId = _buildConfigObj.GetValue("BuildId").ToString();
+                        _deployBean.ProjectName = _buildConfigObj.GetValue("ProjectName").ToString();
+                        _deployBean.BranchName = _buildConfigObj.GetValue("BranchName").ToString();
+                        _deployBean.Environment = _buildConfigObj.GetValue("Environment").ToString();
+                        _deployBean.UpgradeType = _buildConfigObj.GetValue("UpgradeType").ToString(); ;
+                        _deployBean.AutoUpgrade = Boolean.Parse(_buildConfigObj.GetValue("AutoUpgrade").ToString());
+                    }
+                    catch (Exception ex)
+                    {
+                        LogUtils.Error(null, new Exception("解析部署任务数据请求失败 " + _result));
+                        LogUtils.Error(null, ex);
+                        throw;
+                    }
+                    LogEngin _logEngin = new LogEngin("部署", _deployBean.TaskId);
 
-                        ArrayList _modifyFiles = new ArrayList();
-                        ///////////////////判断是否增量升级
-                        if (_deployBean.AutoUpgrade)
+                    try
+                    {
+                        string _taskTempDir = Path.Combine(Constants.Temp, _deployBean.TaskId);
+                        string _projectTempDir = Path.Combine(_taskTempDir, _deployBean.ProjectName);
+
+                        //E:\AutoBuildHome\SourceFile\myProjct\project1\master
+                        ////////////////////根据UnitConfig Copy 文件
+                        if (_sourceCodeRootDirs.ContainsKey(_deployBean.TaskId))
                         {
-                            //MD5比较文件是否修改
-                            string _sourcePath = Path.Combine(Constants.Temp, _deployBean.TaskId, _deployBean.ProjectName);
-                            string _targetPath = Path.Combine(Constants.CurrentVersion, _deployBean.ProjectName);
+                            CopyFileByUnitConfig(_logEngin, _deployBean, _sourceCodeRootDirs[_deployBean.TaskId].ToString(), _projectTempDir);
+                            string _zipSourceDir = _projectTempDir;
 
-                            ArrayList _files = new ArrayList();
-                            FileUtils.GetFiles(new DirectoryInfo(_sourcePath), _files);
-                            string _outTempDir = Path.Combine(_taskTempDir, "upgrade");
-                            FileUtils.CreateDir(_outTempDir);
-
-                            foreach (string _file in _files)
+                            ArrayList _modifyFiles = new ArrayList();
+                            ///////////////////判断是否增量升级
+                            if (_deployBean.AutoUpgrade)
                             {
-                                string _oldFile = _file.Replace(_sourcePath, _targetPath);
-                                //文件存在就MD5比较
-                                if (IOUtils.FileExists(_oldFile))
+                                //MD5比较文件是否修改
+                                string _sourcePath = Path.Combine(Constants.Temp, _deployBean.TaskId, _deployBean.ProjectName);
+                                string _targetPath = Path.Combine(Constants.CurrentVersion, _deployBean.ProjectName);
+
+                                ArrayList _files = new ArrayList();
+                                FileUtils.GetFiles(new DirectoryInfo(_sourcePath), _files);
+                                string _outTempDir = Path.Combine(_taskTempDir, "upgrade");
+                                FileUtils.CreateDir(_outTempDir);
+
+                                foreach (string _file in _files)
                                 {
-                                    string _newMD5 = MD5Utils.MD5File(_file);
-                                    string _oldMD5 = MD5Utils.MD5File(_oldFile);
-                                    if (!_newMD5.Equals(_oldMD5))
+                                    string _oldFile = _file.Replace(_sourcePath, _targetPath);
+                                    //文件存在就MD5比较
+                                    if (IOUtils.FileExists(_oldFile))
                                     {
-                                        _logEngin.Info("不一样的文件：" + _file);
+                                        string _newMD5 = MD5Utils.MD5File(_file);
+                                        string _oldMD5 = MD5Utils.MD5File(_oldFile);
+                                        if (!_newMD5.Equals(_oldMD5))
+                                        {
+                                            _logEngin.Info("不一样的文件：" + _file);
+                                            _modifyFiles.Add(_file);
+                                            string _outPath = _file.Replace(_taskTempDir, _outTempDir);
+                                            FileUtils.CopyDirOrFile(_file, _outPath);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        _logEngin.Info("新增文件：" + _file);
                                         _modifyFiles.Add(_file);
                                         string _outPath = _file.Replace(_taskTempDir, _outTempDir);
                                         FileUtils.CopyDirOrFile(_file, _outPath);
                                     }
                                 }
+
+                                if (_modifyFiles.Count > 0)
+                                {
+                                    _zipSourceDir = Path.Combine(_outTempDir, _deployBean.ProjectName);
+                                }
                                 else
                                 {
-                                    _logEngin.Info("新增文件：" + _file);
-                                    _modifyFiles.Add(_file);
-                                    string _outPath = _file.Replace(_taskTempDir, _outTempDir);
-                                    FileUtils.CopyDirOrFile(_file, _outPath);
+                                    _logEngin.Error(new Exception("选择增量升级但无文件改动，部署失败"));
                                 }
+
                             }
 
-                            if (_modifyFiles.Count > 0)
+                            if (!_deployBean.AutoUpgrade || _modifyFiles.Count > 0)
                             {
-                                _zipSourceDir = Path.Combine(_outTempDir, _deployBean.ProjectName);
-                            }
-                            else
-                            {
-                                _logEngin.Error(new Exception("选择增量升级但无文件改动，部署失败"));
+                                //压缩文件
+                                string _buildZip = _deployBean.TaskId + ".zip";
+                                _logEngin.Info("压缩文件 " + _buildZip);
+                                string _zipPath = Path.Combine(Constants.Temp, _deployBean.TaskId, _buildZip);
+                                ZipFile.CreateFromDirectory(_zipSourceDir, _zipPath, CompressionLevel.Fastest, true);
+                                _logEngin.Info("     压缩 " + _projectTempDir + " 目录，生成" + _buildZip + " 文件");
+                                _logEngin.Info("     上传 " + _buildZip + " 文件到七牛");
+
+                                ////////////////////压缩build包，并上传到七牛云
+                                _deployBean.DeployQiniuUrl = UploadZip(_logEngin, _deployBean.TaskId, _deployBean.ProjectName, _zipPath, _buildZip);
                             }
 
+                            //删除临时目录
+                            FileUtils.DeleteDir(Path.Combine(Constants.Temp, _deployBean.TaskId));
                         }
-
-                        if (!_deployBean.AutoUpgrade || _modifyFiles.Count > 0)
+                        else
                         {
-                            //压缩文件
-                            string _buildZip = _deployBean.TaskId + ".zip";
-                            _logEngin.Info("压缩文件 " + _buildZip);
-                            string _zipPath = Path.Combine(Constants.Temp, _deployBean.TaskId, _buildZip);
-                            ZipFile.CreateFromDirectory(_zipSourceDir, _zipPath, CompressionLevel.Fastest, true);
-                            _logEngin.Info("     压缩 " + _projectTempDir + " 目录，生成" + _buildZip + " 文件");
-                            _logEngin.Info("     上传 " + _buildZip + " 文件到七牛");
-
-                            ////////////////////压缩build包，并上传到七牛云
-                            _deployBean.DeployQiniuUrl = UploadZip(_logEngin, _deployBean.TaskId, _deployBean.ProjectName, _zipPath, _buildZip);
+                            throw new Exception("deployed 失败： 不存在 " + _deployBean.TaskId + " build 任务！");
                         }
 
-                        //删除临时目录
-                        FileUtils.DeleteDir(Path.Combine(Constants.Temp, _deployBean.TaskId));
                     }
-                    else
+                    catch (Exception _ex)
                     {
-                        throw new Exception("deployed 失败： 不存在 " + _deployBean.TaskId + " build 任务！");
+                        ////////build失败
+                        _logEngin.Error(_ex);
+                        _logEngin.IsSuccess = false;
                     }
-        
+
+                    ////////////////文件上传成功，把文件上传路径传给服务器
+                    _logEngin.Info("本地Deployed完成通知服务器");
+                    /////
+                    _logEngin.Info("组装资源文件完成，通知部署服务器去Qiniu下载资源文件");
+                    Console.WriteLine("组装资源文件完成，通知部署服务器去Qiniu下载资源文件");
+
+                    if (_logEngin.IsSuccess && _deployBean.DeployQiniuUrl != null && _deployBean.DeployQiniuUrl.Length > 0)
+                    {
+                        _sourceCodeRootDirs.Remove(_deployBean.TaskId);
+                        Dispatcher(_logEngin, _deployBean.ProjectName, _deployBean.Environment, _deployBean.DeployQiniuUrl);
+                    }
+
+                    //上传日志文件                             
+                    string _log = _logEngin.ToHtml();
+                    string _logPath = Path.Combine(Constants.Temp, _deployBean.TaskId + "_deploy.html");
+                    IOUtils.WriteUTF8String(_logPath, _log);
+                    string _logUrl = UploadLogFile(_logEngin, _logPath);
+
+                    //请求http获取打包任务
+                    _cDate = DateTime.Now.ToFileTime();
+                    _dictData.Clear();
+
+                    int _state = (_logEngin.IsSuccess ? 2 : 1);
+
+                    _dictData.Add("TimeStamp", _cDate);
+                    _dictData.Add("Id", _deployBean.Id);
+                    _dictData.Add("State", _state);
+                    _dictData.Add("Url", _deployBean.DeployQiniuUrl);
+                    _dictData.Add("LogUrl", _logUrl);
+
+                    _sign = SignData.Md5SignDict(_configBean.SecurityKey, _dictData);
+
+                    JObject _postDataJson = new JObject();
+                    _postDataJson.Add("Id", _deployBean.Id);
+                    _postDataJson.Add("State", _state);
+                    _postDataJson.Add("Url", _deployBean.DeployQiniuUrl);
+                    _postDataJson.Add("LogUrl", _logUrl);
+                    _postDataJson.Add("TimeStamp", _cDate);
+                    _postDataJson.Add("Sign", _sign);
+
+                    HttpUtils.HttpPut(Constants.GET_DEPLOY_TASK, _postDataJson.ToString());
                 }
-                catch (Exception _ex)
+                else //没有取到任务，隔段时间再去取
                 {
-                    ////////build失败
-                    _logEngin.Error(_ex);
-                    _logEngin.IsSuccess = false;
+                    Thread.Sleep(_configBean.GetBuildTaskInterval * 1000);
                 }
-
-                ////////////////文件上传成功，把文件上传路径传给服务器
-                _logEngin.Info("本地Deployed完成通知服务器");
-
-                //上传日志文件                             
-                string _log = _logEngin.ToHtml();
-                string _logPath = Path.Combine(Constants.Temp, _deployBean.TaskId + "_deploy.html");
-                IOUtils.WriteUTF8String(_logPath, _log);
-                string _logUrl = UploadLogFile(_logEngin, _logPath);
-
-
-                //请求http获取打包任务
-                _cDate = DateTime.Now.ToFileTime();
-                _dictData.Clear();
-
-                int _state = (_logEngin.IsSuccess ? 2 : 1);
-
-                _dictData.Add("TimeStamp", _cDate);
-                _dictData.Add("Id", _deployBean.Id);
-                _dictData.Add("State", _state);
-                _dictData.Add("Url", _deployBean.DeployQiniuUrl);
-
-                _sign = SignData.Md5SignDict(_configBean.SecurityKey, _dictData);
-
-                _postDataStr = "Id=" + _deployBean.Id + "&State=" + _state + "&Url=" + _deployBean.DeployQiniuUrl + "&TimeStamp=" + _cDate + "&Sign=" + _sign;
-                HttpUtils.HttpPut(Constants.GET_DEPLOY_TASK, _postDataStr);
-                /////
-                _logEngin.Info("组装资源文件完成，通知部署服务器去Qiniu下载资源文件");
-                Console.WriteLine("组装资源文件完成，通知部署服务器去Qiniu下载资源文件");
-
-                if (_logEngin.IsSuccess && _deployBean.DeployQiniuUrl !=null && _deployBean.DeployQiniuUrl.Length > 0) {
-                    _sourceCodeRootDirs.Remove(_deployBean.TaskId);
-                    Dispatcher(_logEngin, _deployBean.ProjectName, _deployBean.Environment, _deployBean.DeployQiniuUrl);
-                }
-            }
-            else //没有取到任务，隔段时间再去取
-            {
-                Thread.Sleep(_configBean.GetBuildTaskInterval * 1000);
             }
         }
 
@@ -340,7 +349,7 @@ namespace doAutoBuild
 
             string _sourceConfigFile = Path.Combine(_projectPath, "Source.config");
             if (!IOUtils.FileExists(_sourceConfigFile))
-            { //表示文件目录不存在 配置有问题
+            { //表示文件不存在 配置有问题
                 throw new Exception("项目" + _buildBean.ProjectName + " Source.config 不存在，配置有问题");
             }
 
@@ -374,7 +383,7 @@ namespace doAutoBuild
             _logEngin.Info("去远程仓库下载代码,下载代码到指定目录： " + _sourceCodeBean.DestPath);
             //根据sourceConfig里面的配置去远程仓库下载代码  
             int _code = _dsc.DownloadSourceCode(_logEngin, _sourceCodeBean, _buildBean);
-            if (_code != 0) {
+            if (_code != 0 && _code != 128) {
                 throw new Exception("源代码下载失败！请检查 "+_buildBean.ProjectName+" 项目下的 Source.config文件");
             }
             
@@ -599,11 +608,33 @@ namespace doAutoBuild
                             string _port = _serviceCofnigObj.GetValue("Port").ToString();
                             //string _sign = _serviceCofnigObj.GetValue("Sign").ToString();
                             //调用接口，参数 七牛地址，Unit名称
+                            //http://localhost:56905/doAutoDeploy/AutoDeploy_N_Notify
+                            string _url = "http://" + _host + ":" + _port + Constants.NOTIFY_DEPLOY;
 
+                            long _cDate = DateTime.Now.ToFileTime();
+                            Dictionary<string, object> _dictData = new Dictionary<string, object>();
+                            _dictData.Add("TimeStamp", _cDate);
+                            _dictData.Add("Url", _zipUrl);
+                            _dictData.Add("ProjectId", _projectName);
+                            _dictData.Add("Unit", _unit);
+
+                            var _sign = SignData.Md5SignDict(_configBean.SecurityKey, _dictData);
+                            string _postDataStr = "ProjectId=" + _projectName + "&Unit=" + _unit + "&Url=" + _zipUrl + "&TimeStamp=" + _cDate + "&Sign=" + _sign;
+
+                            try
+                            {
+                                HttpUtils.HttpPost(_url, _postDataStr);
+                            }
+                            catch (Exception _ex)
+                            {
+                                _logEngin.Error(new Exception(_url + " 通知服务器失败！ \n" + _ex));
+                                continue;
+                            }
                         }
                         catch (Exception _ex)
                         {
-                            throw new Exception(_serviceCofnigPath + " 配置文件内容有误！ \n" + _ex);
+                            _logEngin.Error(new Exception(_serviceCofnigPath + " 配置文件内容有误！ \n" + _ex));
+                            continue;
                         }
                     }
                 }

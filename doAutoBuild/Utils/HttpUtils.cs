@@ -14,7 +14,7 @@ namespace doAutoBuild.Utils
         {
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Url + (postDataStr == "" ? "" : "?") + postDataStr);
             request.Method = "GET";
-            request.ContentType = "text/html;charset=UTF-8";
+            request.ContentType = "application/json; charset=UTF-8";
 
             HttpWebResponse response = (HttpWebResponse)request.GetResponse();
             Stream myResponseStream = response.GetResponseStream();
@@ -30,7 +30,7 @@ namespace doAutoBuild.Utils
         {
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create(Url);
             request.Method = "PUT";
-            request.ContentType = "application/x-www-form-urlencoded";
+            request.ContentType = "application/json; charset=UTF-8";
             byte[] bytes = Encoding.UTF8.GetBytes(postDataStr);
 
             using (var requestStream = request.GetRequestStream())
@@ -46,6 +46,42 @@ namespace doAutoBuild.Utils
             myStreamReader.Close();
             myResponseStream.Close();
             //return retString;
+        }
+      
+        public static string HttpPost(string url, string postDataStr)
+        {          
+            WebRequest webRequest = WebRequest.Create(url);
+            HttpWebRequest httpRequest = webRequest as HttpWebRequest;
+            if (httpRequest == null)
+            {
+                throw new ApplicationException(string.Format("Invalid url string: {0}", url));
+            }
+
+            // 填充httpWebRequest的基本信息
+            //httpRequest.UserAgent = sUserAgent;
+            httpRequest.ContentType = "application/x-www-form-urlencoded";
+            httpRequest.Method = "POST";
+
+            Encoding encoding = Encoding.GetEncoding("utf-8");
+            byte[] data = encoding.GetBytes(postDataStr);
+            // 填充要post的内容
+            httpRequest.ContentLength = data.Length;
+            Stream requestStream = httpRequest.GetRequestStream();
+            requestStream.Write(data, 0, data.Length);
+            requestStream.Close();
+
+            // 发送post请求到服务器并读取服务器返回信息
+            Stream responseStream = httpRequest.GetResponse().GetResponseStream();
+
+            // 读取服务器返回信息
+            string stringResponse = string.Empty;
+            using (StreamReader responseReader =new StreamReader(responseStream, Encoding.GetEncoding("utf-8")))
+            {
+                stringResponse = responseReader.ReadToEnd();
+            }
+            responseStream.Close();
+
+            return stringResponse;
         }
     }
 }

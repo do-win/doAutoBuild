@@ -40,5 +40,7 @@ namespace doAutoBuild.Utils
         public const string Root = "http://d1test.dcdmt.cn/AutoBuild";
         public static string GET_BUILD_TASK = Root + "/doBuild/builda_N_Build";
         public static string GET_DEPLOY_TASK = Root + "/doBuild/builda1_N_Deployment";
+
+        public static string NOTIFY_DEPLOY = "/doAutoDeploy/AutoDeploy_N_Notify";
     }
 }
