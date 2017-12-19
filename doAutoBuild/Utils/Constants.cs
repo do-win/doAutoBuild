@@ -10,7 +10,7 @@ namespace doAutoBuild.Utils
     static class Constants
     {
 
-        public const string RootPath = "E:\\AutoBuildHome";
+        public const string RootPath = "C:\\AutoBuildHome";
 
         public static string BuildConfig = RootPath + Path.DirectorySeparatorChar + "Build.config";
 
@@ -37,7 +37,7 @@ namespace doAutoBuild.Utils
 
 
         ///////////////URL
-        public const string Root = "http://d1test.dcdmt.cn/AutoBuild";
+        public const string Root = "http://autobuild.dcdmt.cn";
         public static string GET_BUILD_TASK = Root + "/doBuild/builda_N_Build";
         public static string GET_DEPLOY_TASK = Root + "/doBuild/builda1_N_Deployment";
 

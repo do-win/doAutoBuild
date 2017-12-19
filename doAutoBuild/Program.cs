@@ -58,7 +58,7 @@ namespace doAutoBuild
             Thread deployThread = new Thread(DeployThreadChild);
             deployThread.Start();
 
-            Console.ReadKey();
+            //Console.ReadKey();
         }
 
 
